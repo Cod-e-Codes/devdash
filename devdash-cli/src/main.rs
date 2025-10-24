@@ -14,16 +14,32 @@ use devdash_core::{
     ConfigFile, EventBus, PluginManager, WidgetContainer, WidgetRegistry, flatten_layout_items,
     register_widget, register_widget_no_bus, widget::CpuWidget,
 };
-use devdash_widgets::{DiskWidget, GitWidget, MemoryWidget, NetworkWidget, ProcessWidget};
+use devdash_widgets::{
+    DiskWidget, ErrorWidget, GitWidget, MemoryWidget, NetworkWidget, ProcessWidget,
+};
 
 fn reload_dashboard(
     dashboard_name: &str,
     registry: &mut WidgetRegistry,
     event_bus: &EventBus,
-    _plugin_manager: &mut PluginManager,
+    plugin_manager: &mut PluginManager,
 ) -> Result<(Vec<WidgetContainer>, devdash_core::Layout), Box<dyn std::error::Error>> {
     // Re-load config
     let config = ConfigFile::load()?;
+
+    // Clear existing plugin widgets from registry
+    registry.clear_widgets();
+
+    // Reload plugins and re-register them in the registry
+    let plugin_widgets = plugin_manager.load_all().unwrap_or_else(|e| {
+        eprintln!("Warning: Failed to reload plugins: {}. Continuing without plugins.", e);
+        Vec::new()
+    });
+
+    // Register plugin widgets in the registry
+    for (name, widget) in plugin_widgets {
+        registry.register_widget(&name, widget);
+    }
 
     // Get specified dashboard by name
     let dashboard = config
@@ -40,7 +56,9 @@ fn reload_dashboard(
             if let Some(widget) = registry.create(name, event_bus, Duration::from_secs(1)) {
                 new_widgets.push(WidgetContainer::new(name.clone(), widget));
             } else {
-                eprintln!("Warning: Unknown widget '{}' in config", name);
+                // Create error widget for missing/unknown widgets
+                let error_widget = ErrorWidget::plugin_error(name);
+                new_widgets.push(WidgetContainer::new(name.clone(), Box::new(error_widget)));
             }
         }
     }
@@ -131,7 +149,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(widget) = registry.create(name, &event_bus, Duration::from_secs(1)) {
                 widgets.push(WidgetContainer::new(name.clone(), widget));
             } else {
-                eprintln!("Warning: Unknown widget '{}' in config", name);
+                // Create error widget for missing/unknown widgets
+                let error_widget = ErrorWidget::plugin_error(name);
+                widgets.push(WidgetContainer::new(name.clone(), Box::new(error_widget)));
             }
         }
     }

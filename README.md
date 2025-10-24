@@ -7,6 +7,7 @@ A terminal-based dashboard for developers built with Rust and Ratatui. devdash p
 ## Features
 
 - **6 Built-in Widgets**: CPU, Memory, Disk, Process, Network, and Git monitoring
+- **Example Plugin**: Interactive counter widget demonstrating plugin capabilities
 - **Flexible Layout System**: Horizontal and vertical layouts with flex constraints
 - **Plugin Architecture**: Extend functionality with custom widgets
 - **Hot Reload**: Live configuration and plugin updates
@@ -160,6 +161,8 @@ cp target/release/example_plugin.dll ~/.devdash/plugins/
 ```
 
 Plugin directory: `~/.devdash/plugins/`
+
+**Note**: If a plugin widget is configured but the plugin file is missing, devdash will display a warning and continue running with the available widgets.
 
 ## Hot Reload
 

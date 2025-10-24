@@ -49,6 +49,10 @@ impl WidgetRegistry {
     pub fn list_widgets(&self) -> Vec<&String> {
         self.factories.keys().collect()
     }
+
+    pub fn clear_widgets(&mut self) {
+        self.widgets.clear();
+    }
 }
 
 #[macro_export]
