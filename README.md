@@ -2,6 +2,8 @@
 
 A terminal-based dashboard for developers built with Rust and Ratatui. devdash provides real-time system monitoring with a flexible layout system and plugin architecture.
 
+<img src="screenshot.png" alt="devdash Screenshot" width="800">
+
 ## Features
 
 - **6 Built-in Widgets**: CPU, Memory, Disk, Process, Network, and Git monitoring
