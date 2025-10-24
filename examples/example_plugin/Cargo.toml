@@ -1,0 +1,14 @@
+[package]
+name = "example-plugin"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+crossterm = "0.29.0"
+devdash-plugin-sdk = { path = "../../devdash-plugin-sdk" }
+ratatui = "0.29"

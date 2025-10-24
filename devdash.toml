@@ -1,0 +1,196 @@
+[[dashboard]]
+name = "default"
+
+  [dashboard.layout]
+  type = "layout"
+  direction = "horizontal"
+  
+  [[dashboard.layout.items]]
+  type = "widget"
+  name = "process"
+  flex = 2
+  
+  [[dashboard.layout.items]]
+  type = "layout"
+  direction = "vertical"
+  
+    [[dashboard.layout.items.items]]
+    type = "widget"
+    name = "cpu"
+    flex = 1
+    
+    [[dashboard.layout.items.items]]
+    type = "widget"
+    name = "memory"
+    flex = 1
+    
+    [[dashboard.layout.items.items]]
+    type = "widget"
+    name = "disk"
+    flex = 1
+    
+    # Example plugin widget - uncomment when testing hot-reload
+    [[dashboard.layout.items.items]]
+    type = "widget"
+    name = "example"
+    flex = 1
+
+[[dashboard]]
+name = "minimal"
+
+  [dashboard.layout]
+  type = "layout"
+  direction = "horizontal"
+  
+  [[dashboard.layout.items]]
+  type = "widget"
+  name = "cpu"
+  flex = 1
+  
+  [[dashboard.layout.items]]
+  type = "widget"
+  name = "memory"
+  flex = 1
+
+[[dashboard]]
+name = "process-focused"
+
+  [dashboard.layout]
+  type = "layout"
+  direction = "vertical"
+  
+  [[dashboard.layout.items]]
+  type = "widget"
+  name = "process"
+  flex = 3
+  
+  [[dashboard.layout.items]]
+  type = "layout"
+  direction = "horizontal"
+  
+    [[dashboard.layout.items.items]]
+    type = "widget"
+    name = "cpu"
+    flex = 1
+    
+    [[dashboard.layout.items.items]]
+    type = "widget"
+    name = "memory"
+    flex = 1
+    
+    [[dashboard.layout.items.items]]
+    type = "widget"
+    name = "disk"
+    flex = 1
+
+# Hot-reload testing dashboard
+[[dashboard]]
+name = "hot-reload-test"
+
+  [dashboard.layout]
+  type = "layout"
+  direction = "horizontal"
+  
+  [[dashboard.layout.items]]
+  type = "widget"
+  name = "cpu"
+  flex = 1
+  
+  [[dashboard.layout.items]]
+  type = "widget"
+  name = "memory"
+  flex = 1
+  
+  # Uncomment this when you have the example plugin built and copied to ~/.devdash/plugins/
+  [[dashboard.layout.items]]
+  type = "widget"
+  name = "example"
+  flex = 1
+
+# Developer dashboard with all 6 core widgets
+[[dashboard]]
+name = "dev"
+
+  [dashboard.layout]
+  type = "layout"
+  direction = "horizontal"
+
+  [[dashboard.layout.items]]
+  type = "widget"
+  name = "process"
+  flex = 2
+
+  [[dashboard.layout.items]]
+  type = "layout"
+  direction = "vertical"
+
+    [[dashboard.layout.items.items]]
+    type = "widget"
+    name = "cpu"
+    flex = 1
+
+    [[dashboard.layout.items.items]]
+    type = "widget"
+    name = "memory"
+    flex = 1
+
+    [[dashboard.layout.items.items]]
+    type = "widget"
+    name = "network"
+    flex = 1
+
+    [[dashboard.layout.items.items]]
+    type = "widget"
+    name = "disk"
+    flex = 1
+
+    [[dashboard.layout.items.items]]
+    type = "widget"
+    name = "git"
+    flex = 1
+
+# Optimized dashboard layout with better space utilization
+[[dashboard]]
+name = "dev-optimized"
+
+  [dashboard.layout]
+  type = "layout"
+  direction = "horizontal"
+
+    [[dashboard.layout.items]]
+    type = "layout"
+    direction = "vertical"
+
+      [[dashboard.layout.items.items]]
+      type = "widget"
+      name = "process"
+      flex = 1
+
+      [[dashboard.layout.items.items]]
+      type = "widget"
+      name = "cpu"
+      flex = 1
+
+    [[dashboard.layout.items]]
+    type = "layout"
+    direction = "vertical"
+
+      [[dashboard.layout.items.items]]
+      type = "widget"
+      name = "memory"
+      flex = 1
+
+      [[dashboard.layout.items.items]]
+      type = "widget"
+      name = "network"
+      flex = 1
+
+      [[dashboard.layout.items.items]]
+      type = "widget"
+      name = "disk"
+      flex = 1
+
+      [[dashboard.layout.items.items]]
+      type = "widget"
+      name = "git"
+      flex = 1

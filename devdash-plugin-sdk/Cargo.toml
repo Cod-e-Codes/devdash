@@ -1,0 +1,10 @@
+[package]
+name = "devdash-plugin-sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+crossterm = "0.29.0"
+devdash-core = { path = "../devdash-core" }
+ratatui = "0.29"

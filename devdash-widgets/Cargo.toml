@@ -1,0 +1,11 @@
+[package]
+name = "devdash-widgets"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+crossterm = "0.29.0"
+devdash-core = { version = "0.1.0", path = "../devdash-core" }
+git2 = { version = "0.20.2", features = ["vendored-libgit2"] }
+ratatui = "0.29.0"
+sysinfo = "0.37.2"
