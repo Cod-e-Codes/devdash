@@ -106,7 +106,7 @@ impl GitWidget {
 
     /// Open current directory in file manager
     fn open_file_manager(&self) {
-        let path = self.repo_path.to_string_lossy();
+        let path = self.repo_path.to_string_lossy().to_string();
 
         #[cfg(target_os = "windows")]
         {
