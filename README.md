@@ -32,7 +32,7 @@ Select a specific dashboard:
 cargo run -- --dashboard=dev
 ```
 
-Available dashboards: `default`, `minimal`, `process-focused`, `dev`, `dev-optimized`
+Available dashboards: `default`, `minimal`, `process-focused`, `dev`, `balanced`
 
 ### Keyboard Shortcuts
 

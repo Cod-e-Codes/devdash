@@ -128,7 +128,7 @@ name = "dev"
 
 # Optimized dashboard layout with better space utilization
 [[dashboard]]
-name = "dev-optimized"
+name = "balanced"
 
   [dashboard.layout]
   type = "layout"
