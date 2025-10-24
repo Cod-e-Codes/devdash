@@ -83,29 +83,6 @@ name = "process-focused"
     name = "disk"
     flex = 1
 
-# Hot-reload testing dashboard
-[[dashboard]]
-name = "hot-reload-test"
-
-  [dashboard.layout]
-  type = "layout"
-  direction = "horizontal"
-  
-  [[dashboard.layout.items]]
-  type = "widget"
-  name = "cpu"
-  flex = 1
-  
-  [[dashboard.layout.items]]
-  type = "widget"
-  name = "memory"
-  flex = 1
-  
-  # Uncomment this when you have the example plugin built and copied to ~/.devdash/plugins/
-  [[dashboard.layout.items]]
-  type = "widget"
-  name = "example"
-  flex = 1
 
 # Developer dashboard with all 6 core widgets
 [[dashboard]]
