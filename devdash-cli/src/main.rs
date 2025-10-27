@@ -32,7 +32,10 @@ fn reload_dashboard(
 
     // Reload plugins and re-register them in the registry
     let plugin_widgets = plugin_manager.load_all().unwrap_or_else(|e| {
-        eprintln!("Warning: Failed to reload plugins: {}. Continuing without plugins.", e);
+        eprintln!(
+            "Warning: Failed to reload plugins: {}. Continuing without plugins.",
+            e
+        );
         Vec::new()
     });
 
