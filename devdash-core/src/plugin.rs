@@ -7,7 +7,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 /// Result type for plugin loading operations
-pub type PluginLoadResult = Result<Vec<(String, Box<dyn Widget>)>, PluginError>;
+pub type PluginLoadResult = Result<Vec<(String, PluginWidget)>, PluginError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PluginError {
@@ -32,15 +32,114 @@ pub struct PluginMetadata {
     pub name_len: usize,
 }
 
+/// FFI-safe representation of a fat pointer (trait object)
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct FatPointer {
+    data: *mut std::ffi::c_void,
+    vtable: *mut std::ffi::c_void,
+}
+
+/// Wrapper around plugin widget that handles proper cleanup
+pub struct PluginWidget {
+    // Store as fat pointer to preserve vtable
+    ptr: *mut dyn Widget,
+    // Store components for destroy call
+    fat_ptr: FatPointer,
+    destroy: extern "C" fn(FatPointer),
+    // Keep library alive for as long as the widget exists
+    _lib: Library,
+}
+
+// Safety: The plugin system ensures that the pointer is valid and the
+// Widget trait object is properly constructed. The Library keeps the
+// code alive.
+unsafe impl Send for PluginWidget {}
+unsafe impl Sync for PluginWidget {}
+
+impl PluginWidget {
+    unsafe fn new(fat_ptr: FatPointer, destroy: extern "C" fn(FatPointer), lib: Library) -> Self {
+        // Reconstruct the fat pointer from components
+        let ptr: *mut dyn Widget = unsafe { std::mem::transmute([fat_ptr.data, fat_ptr.vtable]) };
+
+        Self {
+            ptr,
+            fat_ptr,
+            destroy,
+            _lib: lib,
+        }
+    }
+
+    fn as_widget(&mut self) -> &mut dyn Widget {
+        // Safety: The pointer is valid and the library keeps the code alive
+        unsafe { &mut *self.ptr }
+    }
+
+    fn as_widget_const(&self) -> &dyn Widget {
+        // Safety: Same as above, but for const access
+        unsafe { &*self.ptr }
+    }
+}
+
+impl Drop for PluginWidget {
+    fn drop(&mut self) {
+        // Call plugin's destroy function to deallocate with correct allocator
+        (self.destroy)(FatPointer {
+            data: self.fat_ptr.data,
+            vtable: self.fat_ptr.vtable,
+        });
+    }
+}
+
+// Forward Widget trait to the inner widget
+impl Widget for PluginWidget {
+    fn on_mount(&mut self) {
+        self.as_widget().on_mount()
+    }
+
+    fn on_update(&mut self, delta: Duration) {
+        self.as_widget().on_update(delta)
+    }
+
+    fn on_event(&mut self, event: crate::Event) -> crate::EventResult {
+        self.as_widget().on_event(event)
+    }
+
+    fn render(&mut self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+        self.as_widget().render(area, buf)
+    }
+
+    fn render_focused(
+        &mut self,
+        area: ratatui::layout::Rect,
+        buf: &mut ratatui::buffer::Buffer,
+        focused: bool,
+    ) {
+        self.as_widget().render_focused(area, buf, focused)
+    }
+
+    fn preferred_size(&self) -> Option<crate::Size> {
+        None
+    }
+
+    fn needs_update(&self) -> bool {
+        self.as_widget_const().needs_update()
+    }
+
+    fn on_unmount(&mut self) {
+        self.as_widget().on_unmount()
+    }
+}
+
 pub struct PluginManager {
     plugins: HashMap<String, LoadedPlugin>,
     plugin_dir: PathBuf,
+    temp_dir: PathBuf,
     watcher: RecommendedWatcher,
     rx: mpsc::Receiver<notify::Result<notify::Event>>,
 }
 
 struct LoadedPlugin {
-    _lib: Library,
     _name: String,
 }
 
@@ -56,6 +155,10 @@ impl PluginManager {
             .map(|h| h.join(".devdash/plugins"))
             .unwrap_or_else(|| PathBuf::from("./plugins"));
 
+        // Create temp directory for plugin copies (Windows file locking workaround)
+        let temp_dir = std::env::temp_dir().join("devdash_plugins");
+        let _ = std::fs::create_dir_all(&temp_dir);
+
         // Create file watcher
         let (tx, rx) = mpsc::channel();
         let watcher = RecommendedWatcher::new(
@@ -65,7 +168,6 @@ impl PluginManager {
             notify::Config::default(),
         )
         .unwrap_or_else(|_| {
-            // Fallback to a dummy watcher if notify fails
             eprintln!("Warning: Failed to create file watcher. Hot-reload disabled.");
             RecommendedWatcher::new(|_| {}, notify::Config::default()).unwrap()
         });
@@ -73,6 +175,7 @@ impl PluginManager {
         Self {
             plugins: HashMap::new(),
             plugin_dir,
+            temp_dir,
             watcher,
             rx,
         }
@@ -88,10 +191,11 @@ impl PluginManager {
         for entry in std::fs::read_dir(&self.plugin_dir)? {
             let path = entry?.path();
 
-            if path.extension().and_then(|s| s.to_str()) == Some(dll_extension())
-                && let Ok((name, widget)) = unsafe { self.load_plugin(&path) }
-            {
-                widgets.push((name, widget));
+            if path.extension().and_then(|s| s.to_str()) == Some(dll_extension()) {
+                match unsafe { self.load_plugin(&path) } {
+                    Ok((name, widget)) => widgets.push((name, widget)),
+                    Err(e) => eprintln!("Warning: Failed to load plugin {:?}: {}", path, e),
+                }
             }
         }
 
@@ -131,11 +235,10 @@ impl PluginManager {
         Ok(())
     }
 
-    unsafe fn load_plugin(
-        &mut self,
-        path: &PathBuf,
-    ) -> Result<(String, Box<dyn Widget>), PluginError> {
-        let lib = unsafe { Library::new(path)? };
+    unsafe fn load_plugin(&mut self, path: &Path) -> Result<(String, PluginWidget), PluginError> {
+        // FIX: Use temp copy to avoid Windows file locking
+        let temp_path = self.copy_to_temp(path)?;
+        let lib = unsafe { Library::new(&temp_path)? };
 
         // Check API version
         let metadata_fn: Symbol<extern "C" fn() -> PluginMetadata> =
@@ -149,10 +252,14 @@ impl PluginManager {
             });
         }
 
-        // Load widget
-        let create_fn: Symbol<extern "C" fn() -> *mut dyn Widget> =
+        // Load create and destroy functions
+        let create_fn: Symbol<extern "C" fn() -> FatPointer> =
             unsafe { lib.get(b"devdash_plugin_create")? };
-        let widget_ptr = create_fn();
+        let destroy_fn: Symbol<extern "C" fn(FatPointer)> =
+            unsafe { lib.get(b"devdash_plugin_destroy")? };
+
+        let fat_ptr = create_fn();
+        let destroy = *destroy_fn;
 
         let name = std::str::from_utf8(unsafe {
             std::slice::from_raw_parts(metadata.name, metadata.name_len)
@@ -162,12 +269,37 @@ impl PluginManager {
         self.plugins.insert(
             name.clone(),
             LoadedPlugin {
-                _lib: lib,
                 _name: name.clone(),
             },
         );
 
-        Ok((name, unsafe { Box::from_raw(widget_ptr) }))
+        let plugin_widget = unsafe { PluginWidget::new(fat_ptr, destroy, lib) };
+
+        Ok((name, plugin_widget))
+    }
+
+    fn copy_to_temp(&self, path: &Path) -> Result<PathBuf, PluginError> {
+        let file_name = path.file_name().ok_or_else(|| {
+            PluginError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Invalid plugin path",
+            ))
+        })?;
+
+        // Create unique temp file name to avoid collisions during hot-reload
+        let temp_name = format!(
+            "{}_{}.{}",
+            file_name
+                .to_string_lossy()
+                .trim_end_matches(&format!(".{}", dll_extension())),
+            rand::random::<u32>(),
+            dll_extension()
+        );
+
+        let temp_path = self.temp_dir.join(temp_name);
+        std::fs::copy(path, &temp_path)?;
+
+        Ok(temp_path)
     }
 
     fn reload_plugin(
@@ -179,59 +311,40 @@ impl PluginManager {
         // Find widget in container list by name
         let widget_idx = widgets.iter().position(|w| w.name() == plugin_name);
 
-        // Call on_unmount to preserve state
+        // FIX: Unmount and drop old widget BEFORE unloading library
         if let Some(idx) = widget_idx {
-            widgets[idx].unmount();
+            let mut old_widget = std::mem::replace(
+                &mut widgets[idx],
+                crate::WidgetContainer::new(
+                    "placeholder".to_string(),
+                    Box::new(crate::widget::CpuWidget::new(Duration::from_secs(1))),
+                ),
+            );
+            old_widget.unmount();
+            // old_widget is dropped here, which calls PluginWidget::drop
         }
 
-        // Remove old plugin from HashMap (drops Library, unloads .so)
+        // NOW remove plugin from HashMap (this drops Library)
         self.plugins.remove(plugin_name);
 
-        // Windows-specific retry logic
-        #[cfg(target_os = "windows")]
-        {
-            for attempt in 0..3 {
-                std::thread::sleep(Duration::from_millis(100));
-                match unsafe { self.load_plugin(&path.to_path_buf()) } {
-                    Ok((name, widget)) => {
-                        let new_container = crate::WidgetContainer::new(name.clone(), widget);
+        // Small delay to ensure library is fully unloaded (especially on Windows)
+        std::thread::sleep(Duration::from_millis(100));
 
-                        // Replace or add widget
-                        if let Some(idx) = widget_idx {
-                            widgets[idx] = new_container;
-                        } else {
-                            widgets.push(new_container);
-                        }
+        // Load new plugin
+        let (name, widget) = unsafe { self.load_plugin(path) }?;
 
-                        // Mount the new widget
-                        if let Some(idx) = widgets.iter().position(|w| w.name() == name) {
-                            widgets[idx].mount();
-                        }
+        let new_container = crate::WidgetContainer::new(name.clone(), Box::new(widget));
 
-                        return Ok(());
-                    }
-                    Err(_e) if attempt < 2 => continue,
-                    Err(e) => return Err(e),
-                }
-            }
+        // Replace or add widget
+        if let Some(idx) = widget_idx {
+            widgets[idx] = new_container;
+        } else {
+            widgets.push(new_container);
         }
 
-        #[cfg(not(target_os = "windows"))]
-        {
-            let (name, widget) = unsafe { self.load_plugin(&path.to_path_buf()) }?;
-            let new_container = crate::WidgetContainer::new(name.clone(), widget);
-
-            // Replace or add widget
-            if let Some(idx) = widget_idx {
-                widgets[idx] = new_container;
-            } else {
-                widgets.push(new_container);
-            }
-
-            // Mount the new widget
-            if let Some(idx) = widgets.iter().position(|w| w.name() == name) {
-                widgets[idx].mount();
-            }
+        // Mount the new widget
+        if let Some(idx) = widgets.iter().position(|w| w.name() == name) {
+            widgets[idx].mount();
         }
 
         Ok(())
@@ -241,12 +354,13 @@ impl PluginManager {
 impl Drop for PluginManager {
     fn drop(&mut self) {
         // Explicitly stop watching before dropping
-        if let Err(e) = self.watcher.unwatch(&self.plugin_dir) {
-            eprintln!("Warning: Failed to stop file watcher: {}", e);
-        }
+        let _ = self.watcher.unwatch(&self.plugin_dir);
 
         // Clear plugins to ensure libraries are unloaded
         self.plugins.clear();
+
+        // Clean up temp directory
+        let _ = std::fs::remove_dir_all(&self.temp_dir);
     }
 }
 

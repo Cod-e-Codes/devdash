@@ -41,7 +41,7 @@ fn reload_dashboard(
 
     // Register plugin widgets in the registry
     for (name, widget) in plugin_widgets {
-        registry.register_widget(&name, widget);
+        registry.register_widget(&name, Box::new(widget));
     }
 
     // Get specified dashboard by name
@@ -141,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Register plugin widgets in the registry
     for (name, widget) in plugin_widgets {
-        registry.register_widget(&name, widget);
+        registry.register_widget(&name, Box::new(widget));
     }
 
     // Create widgets from config

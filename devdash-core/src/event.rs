@@ -42,8 +42,12 @@ pub struct Subscription {
 
 impl Drop for Subscription {
     fn drop(&mut self) {
-        let mut subs = self.bus.subscriptions.write().unwrap();
-        subs.remove(&self.id);
+        // FIX: Don't panic in Drop - handle poisoned lock gracefully
+        if let Ok(mut subs) = self.bus.subscriptions.write() {
+            subs.remove(&self.id);
+        }
+        // If lock is poisoned, we can't unsubscribe, but that's okay
+        // The process is likely shutting down anyway
     }
 }
 

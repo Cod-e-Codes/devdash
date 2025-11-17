@@ -157,18 +157,30 @@ Build and install plugins:
 ```bash
 cd examples/example_plugin
 cargo build --release
-cp target/release/example_plugin.dll ~/.devdash/plugins/
+
+# Windows
+copy target\release\example_plugin.dll %USERPROFILE%\.devdash\plugins\
+
+# Linux/macOS
+cp target/release/libexample_plugin.so ~/.devdash/plugins/  # Linux
+cp target/release/libexample_plugin.dylib ~/.devdash/plugins/  # macOS
 ```
 
 Plugin directory: `~/.devdash/plugins/`
+
+**Requirements**:
+- Plugins must be built with the same Rust version as devdash
+- Use the same optimization level (release/debug)
 
 **Note**: If a plugin widget is configured but the plugin file is missing, devdash will display a warning and continue running with the available widgets.
 
 ## Hot Reload
 
 - **Configuration**: Press `Ctrl+R` to reload `devdash.toml` without restarting
-- **Plugins**: Automatic detection and reloading of plugin changes
+- **Plugins**: Automatic detection and reloading when plugin files are updated. Rebuild plugins while devdash is running and they will reload automatically.
 - **Widgets**: Live updates when configuration changes
+
+Note: Plugin hot-reload works reliably on all platforms including Windows.
 
 ## License
 

@@ -407,10 +407,10 @@ impl NetworkWidget {
                 };
 
                 for (x, ch) in line.chars().enumerate() {
-                    if let Some(pos_x) = inner.x.checked_add(x as u16) {
-                        if pos_x < inner.x + inner.width {
-                            buf[(pos_x, y)].set_char(ch).set_style(style);
-                        }
+                    if let Some(pos_x) = inner.x.checked_add(x as u16)
+                        && pos_x < inner.x + inner.width
+                    {
+                        buf[(pos_x, y)].set_char(ch).set_style(style);
                     }
                 }
             }
