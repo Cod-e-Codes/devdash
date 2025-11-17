@@ -180,8 +180,6 @@ Plugin directory: `~/.devdash/plugins/`
 - **Plugins**: Automatic detection and reloading when plugin files are updated. Rebuild plugins while devdash is running and they will reload automatically.
 - **Widgets**: Live updates when configuration changes
 
-Note: Plugin hot-reload works reliably on all platforms including Windows.
-
 ## License
 
 MIT License
